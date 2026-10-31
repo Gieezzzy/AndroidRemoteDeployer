@@ -16,8 +16,10 @@ namespace AndroidRemoteDeployer
 {
     public partial class MainForm : Form
     {
+        // Real tablets/phones only need ARM; skipping x86/x86_64 roughly halves the OTA download.
+        private const string OTA_ABI_FILTER = "arm64-v8a,armeabi-v7a";
         private const string DEFAULT_PROJECT_ROOT = @"c:\Users\AUDIT STAFF\AndroidStudioProjects\RMS";
-        private const string DEFAULT_HTML_ANDROID_ROOT = @"D:\html\Android";
+        private const string DEFAULT_HTML_ANDROID_ROOT = @"E:\html\Android";
         private const string DEFAULT_RMS_SUBFOLDER = "RMS";
         private const string DEFAULT_SERVER_BASE_URL = "http://192.168.32.43";
 
@@ -27,6 +29,10 @@ namespace AndroidRemoteDeployer
         private int _baseVersionCode = 1;
         private string _baseVersionName = "1.0";
         private bool _isUpdatingUi = false;
+
+        private System.Windows.Forms.Timer? _usbPollingTimer;
+        private List<AdbDeviceInfo> _connectedUsbDevices = new List<AdbDeviceInfo>();
+        private bool _isScanningUsb = false;
 
         public MainForm()
         {
@@ -47,6 +53,12 @@ namespace AndroidRemoteDeployer
 
             RefreshProjectInfo();
             RefreshDestinationStatus();
+
+            // Initialize USB Device Monitor
+            _usbPollingTimer = new System.Windows.Forms.Timer { Interval = 4000 };
+            _usbPollingTimer.Tick += async (s, e) => await RefreshUsbDevicesUiAsync(silent: true);
+            _usbPollingTimer.Start();
+            _ = RefreshUsbDevicesUiAsync(silent: false);
 
             Log("Ready. System initialized with default paths: " + GetFullDestinationFolder(), LogType.Success);
         }
@@ -534,12 +546,12 @@ namespace AndroidRemoteDeployer
             SafeWriteAllText(jsonPath, formattedJson);
             Log($"Successfully updated and saved: {jsonPath}", LogType.Success);
 
-            // Optional: Also sync to root D:\html\app-version.json for legacy clients
+            // Optional: Also sync to root E:\html\app-version.json for legacy clients
             if (chkSyncRootLegacy.Checked)
             {
                 try
                 {
-                    string legacyJsonPath = @"D:\html\app-version.json";
+                    string legacyJsonPath = @"E:\html\app-version.json";
                     SafeWriteAllText(legacyJsonPath, formattedJson);
                     Log($"Legacy Root Synced: {legacyJsonPath}", LogType.Info);
                 }
@@ -619,7 +631,9 @@ namespace AndroidRemoteDeployer
                 {
                     var apks = Directory.GetFiles(apkOutputDir, "*.apk", SearchOption.AllDirectories);
                     Array.Sort(apks, (a, b) => File.GetLastWriteTime(b).CompareTo(File.GetLastWriteTime(a)));
-                    if (apks.Length > 0) sourceApk = apks[0];
+                    // Prioritize signed APKs over unsigned ones
+                    string? signedApk = apks.FirstOrDefault(a => !Path.GetFileName(a).Contains("-unsigned", StringComparison.OrdinalIgnoreCase));
+                    sourceApk = signedApk ?? (apks.Length > 0 ? apks[0] : null);
                 }
 
                 if (string.IsNullOrEmpty(sourceApk) || !File.Exists(sourceApk))
@@ -643,12 +657,12 @@ namespace AndroidRemoteDeployer
                 FileInfo destInfo = new FileInfo(destApk);
                 Log($"APK copied successfully ({destInfo.Length:N0} bytes).", LogType.Success);
 
-                // Optional: sync to legacy root D:\html\rms.apk
+                // Optional: sync to legacy root E:\html\rms.apk
                 if (chkSyncRootLegacy.Checked)
                 {
                     try
                     {
-                        string legacyApk = @"D:\html\rms.apk";
+                        string legacyApk = @"E:\html\rms.apk";
                         SafeCopyFile(sourceApk, legacyApk);
                         Log($"Legacy Root APK Synced: {legacyApk}", LogType.Info);
                     }
@@ -668,6 +682,24 @@ namespace AndroidRemoteDeployer
                 // Refresh info so next bump is queued from new version!
                 RefreshProjectInfo();
                 RefreshDestinationStatus();
+
+                // 7. Optional Direct USB Installation
+                if (chkUsbAutoInstallOnDeploy.Checked)
+                {
+                    var readyDevs = _connectedUsbDevices.Where(d => d.IsReady).ToList();
+                    if (readyDevs.Count > 0)
+                    {
+                        Log("==================================================", LogType.Info);
+                        Log($"[USB DEBUGGING] Found {readyDevs.Count} ready USB device(s). Deploying directly via USB...", LogType.Success);
+                        string chosenSerial = GetSelectedAdbSerial();
+                        await InstallApkToUsbDeviceAsync(chosenSerial, destApk);
+                        Log("==================================================", LogType.Success);
+                    }
+                    else
+                    {
+                        Log("[INFO] Auto-install via USB is active, but no ready USB devices were detected. Server deployment completed successfully.", LogType.Info);
+                    }
+                }
 
                 Log("==================================================", LogType.Success);
                 Log($"DEPLOYMENT COMPLETED FOR v{targetVersionName} (Code {targetVersionCode})!", LogType.Success);
@@ -706,7 +738,7 @@ namespace AndroidRemoteDeployer
                     var psi = new ProcessStartInfo
                     {
                         FileName = "cmd.exe",
-                        Arguments = $"/c gradlew.bat {gradleTask}",
+                        Arguments = $"/c gradlew.bat {gradleTask} \"-PabiFilter={OTA_ABI_FILTER}\"",
                         WorkingDirectory = projectDir,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
@@ -810,7 +842,7 @@ namespace AndroidRemoteDeployer
         {
             using var fbd = new FolderBrowserDialog
             {
-                Description = "Select Target Root Folder (e.g. D:\\html\\Android)",
+                Description = "Select Target Root Folder (e.g. E:\\html\\Android)",
                 SelectedPath = txtDestinationRoot.Text
             };
 
@@ -896,6 +928,11 @@ namespace AndroidRemoteDeployer
             btnQuickRms.Enabled = !isBusy;
             btnToggleHidden.Enabled = !isBusy;
             btnRecalculate.Enabled = !isBusy;
+            btnRefreshUsb.Enabled = !isBusy;
+            btnAdbRestart.Enabled = !isBusy;
+            btnUsbInstallNow.Enabled = !isBusy && _connectedUsbDevices.Any(d => d.IsReady);
+            btnLaunchApp.Enabled = !isBusy && _connectedUsbDevices.Any(d => d.IsReady);
+            btnUsbUninstall.Enabled = !isBusy && _connectedUsbDevices.Any(d => d.IsReady);
             Cursor = isBusy ? Cursors.WaitCursor : Cursors.Default;
         }
 
@@ -964,5 +1001,457 @@ namespace AndroidRemoteDeployer
         }
 
         #endregion
+
+        #region ADB & USB Debugging Sideload Engine
+
+        private string GetAdbExecutablePath()
+        {
+            // 1. Android SDK from local.properties
+            try
+            {
+                string projectDir = txtProjectRoot.Text.Trim();
+                string localProp = Path.Combine(projectDir, "local.properties");
+                if (File.Exists(localProp))
+                {
+                    foreach (var line in File.ReadAllLines(localProp))
+                    {
+                        if (line.Trim().StartsWith("sdk.dir"))
+                        {
+                            string rawPath = line.Substring(line.IndexOf('=') + 1).Trim().Replace(@"\:", ":").Replace(@"\\", @"\");
+                            string adbCand = Path.Combine(rawPath, "platform-tools", "adb.exe");
+                            if (File.Exists(adbCand)) return adbCand;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // 2. Standard known SDK locations
+            string[] candidates = new[]
+            {
+                @"E:\Android\Sdk\platform-tools\adb.exe",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Android\Sdk\platform-tools\adb.exe"),
+                @"C:\Android\Sdk\platform-tools\adb.exe",
+                @"C:\Program Files\Android\platform-tools\adb.exe"
+            };
+
+            foreach (var path in candidates)
+            {
+                if (File.Exists(path)) return path;
+            }
+
+            return "adb.exe";
+        }
+
+        private async Task<(int ExitCode, string Output, string Error)> RunAdbCommandAsync(string arguments, Action<string>? onOutput = null)
+        {
+            string adbPath = GetAdbExecutablePath();
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = adbPath,
+                        Arguments = arguments,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+
+                    var outSb = new StringBuilder();
+                    var errSb = new StringBuilder();
+
+                    using var proc = new Process { StartInfo = psi };
+                    proc.OutputDataReceived += (s, e) =>
+                    {
+                        if (!string.IsNullOrEmpty(e.Data))
+                        {
+                            outSb.AppendLine(e.Data);
+                            onOutput?.Invoke(e.Data);
+                        }
+                    };
+                    proc.ErrorDataReceived += (s, e) =>
+                    {
+                        if (!string.IsNullOrEmpty(e.Data))
+                        {
+                            errSb.AppendLine(e.Data);
+                            onOutput?.Invoke(e.Data);
+                        }
+                    };
+
+                    proc.Start();
+                    proc.BeginOutputReadLine();
+                    proc.BeginErrorReadLine();
+                    proc.WaitForExit();
+
+                    return (proc.ExitCode, outSb.ToString(), errSb.ToString());
+                }
+                catch (Exception ex)
+                {
+                    return (-1, "", ex.Message);
+                }
+            });
+        }
+
+        private async Task<List<AdbDeviceInfo>> ScanAdbDevicesAsync()
+        {
+            var devices = new List<AdbDeviceInfo>();
+            var res = await RunAdbCommandAsync("devices -l");
+            if (res.ExitCode != 0) return devices;
+
+            var lines = res.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var rawLine in lines)
+            {
+                string line = rawLine.Trim();
+                if (line.StartsWith("List of devices") || line.StartsWith("*")) continue;
+
+                var parts = Regex.Split(line, @"\s+");
+                if (parts.Length >= 2)
+                {
+                    var dev = new AdbDeviceInfo
+                    {
+                        Serial = parts[0],
+                        State = parts[1]
+                    };
+
+                    foreach (var part in parts)
+                    {
+                        if (part.StartsWith("model:", StringComparison.OrdinalIgnoreCase))
+                            dev.Model = part.Substring(6).Replace("_", " ");
+                        else if (part.StartsWith("product:", StringComparison.OrdinalIgnoreCase))
+                            dev.Product = part.Substring(8);
+                        else if (part.StartsWith("device:", StringComparison.OrdinalIgnoreCase))
+                            dev.Device = part.Substring(7);
+                    }
+
+                    devices.Add(dev);
+                }
+            }
+
+            return devices;
+        }
+
+        private async Task RefreshUsbDevicesUiAsync(bool silent = false)
+        {
+            if (_isScanningUsb) return;
+            _isScanningUsb = true;
+
+            try
+            {
+                var devices = await ScanAdbDevicesAsync();
+                _connectedUsbDevices = devices;
+
+                string previousSelectedSerial = GetSelectedAdbSerial();
+
+                cmbUsbDevices.Items.Clear();
+
+                int readyCount = devices.Count(d => d.IsReady);
+
+                if (devices.Count == 0)
+                {
+                    cmbUsbDevices.Items.Add("No USB Devices Detected");
+                    cmbUsbDevices.SelectedIndex = 0;
+                    lblUsbDeviceStatus.Text = "⚠️ No USB Devices Detected";
+                    lblUsbDeviceStatus.ForeColor = Color.DarkOrange;
+                    btnUsbInstallNow.Enabled = false;
+                    btnLaunchApp.Enabled = false;
+                    btnUsbUninstall.Enabled = false;
+                }
+                else
+                {
+                    if (readyCount > 1)
+                    {
+                        cmbUsbDevices.Items.Add($"[All Ready Devices ({readyCount})]");
+                    }
+
+                    int selectIndex = 0;
+                    for (int i = 0; i < devices.Count; i++)
+                    {
+                        cmbUsbDevices.Items.Add(devices[i]);
+                        if (!string.IsNullOrEmpty(previousSelectedSerial) && devices[i].Serial == previousSelectedSerial)
+                        {
+                            selectIndex = cmbUsbDevices.Items.Count - 1;
+                        }
+                    }
+
+                    cmbUsbDevices.SelectedIndex = selectIndex >= 0 && selectIndex < cmbUsbDevices.Items.Count ? selectIndex : 0;
+
+                    if (readyCount > 0)
+                    {
+                        lblUsbDeviceStatus.Text = $"🟢 {readyCount} Device(s) Ready (USB Debugging Active)";
+                        lblUsbDeviceStatus.ForeColor = Color.SeaGreen;
+                        btnUsbInstallNow.Enabled = true;
+                        btnLaunchApp.Enabled = true;
+                        btnUsbUninstall.Enabled = true;
+                    }
+                    else
+                    {
+                        bool hasUnauthorized = devices.Any(d => d.State == "unauthorized");
+                        if (hasUnauthorized)
+                        {
+                            lblUsbDeviceStatus.Text = "🔑 Device Unauthorized (Unlock phone & allow USB debugging)";
+                            lblUsbDeviceStatus.ForeColor = Color.Crimson;
+                        }
+                        else
+                        {
+                            lblUsbDeviceStatus.Text = $"⚠️ {devices.Count} Device(s) connected ({devices[0].State})";
+                            lblUsbDeviceStatus.ForeColor = Color.DarkOrange;
+                        }
+                        btnUsbInstallNow.Enabled = false;
+                        btnLaunchApp.Enabled = false;
+                        btnUsbUninstall.Enabled = false;
+                    }
+
+                    if (!silent)
+                    {
+                        Log($"ADB scan found {devices.Count} connected USB device(s) ({readyCount} ready).", LogType.Info);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!silent) Log($"USB scan error: {ex.Message}", LogType.Warn);
+            }
+            finally
+            {
+                _isScanningUsb = false;
+            }
+        }
+
+        private string GetSelectedAdbSerial()
+        {
+            if (cmbUsbDevices.SelectedItem is AdbDeviceInfo dev)
+            {
+                return dev.Serial;
+            }
+            return "";
+        }
+
+        private string? GetTargetApkForUsb()
+        {
+            // 1. Check compiled APK in project outputs
+            string projectDir = txtProjectRoot.Text.Trim();
+            string apkOutputDir = Path.Combine(projectDir, "app", "build", "outputs", "apk");
+            if (Directory.Exists(apkOutputDir))
+            {
+                var apks = Directory.GetFiles(apkOutputDir, "*.apk", SearchOption.AllDirectories);
+                Array.Sort(apks, (a, b) => File.GetLastWriteTime(b).CompareTo(File.GetLastWriteTime(a)));
+                string? signed = apks.FirstOrDefault(a => !Path.GetFileName(a).Contains("-unsigned", StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrEmpty(signed) && File.Exists(signed)) return signed;
+                if (apks.Length > 0 && File.Exists(apks[0])) return apks[0];
+            }
+
+            // 2. Check deployed APK in destination folder
+            string destApk = GetDestinationApkPath();
+            if (File.Exists(destApk)) return destApk;
+
+            return null;
+        }
+
+        private async Task<bool> InstallApkToUsbDeviceAsync(string? specificSerial = null, string? customApkPath = null)
+        {
+            string? apkToInstall = customApkPath;
+            if (string.IsNullOrEmpty(apkToInstall) || !File.Exists(apkToInstall))
+            {
+                apkToInstall = GetTargetApkForUsb();
+            }
+
+            if (string.IsNullOrEmpty(apkToInstall) || !File.Exists(apkToInstall))
+            {
+                Log("Cannot install via USB: No APK file found. Please build or deploy the APK first.", LogType.Error);
+                MessageBox.Show("No APK file found to install. Please run 'Build APK & Remote Deploy' first.", "Missing APK", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            var targetDevices = new List<AdbDeviceInfo>();
+            if (!string.IsNullOrEmpty(specificSerial))
+            {
+                var dev = _connectedUsbDevices.FirstOrDefault(d => d.Serial == specificSerial);
+                if (dev != null) targetDevices.Add(dev);
+            }
+
+            if (targetDevices.Count == 0)
+            {
+                targetDevices = _connectedUsbDevices.Where(d => d.IsReady).ToList();
+            }
+
+            if (targetDevices.Count == 0)
+            {
+                Log("USB Install Aborted: No authorized Android devices connected via USB debugging.", LogType.Warn);
+                MessageBox.Show("No authorized Android devices detected.\r\n\r\n1. Ensure phone is connected via USB.\r\n2. Enable Developer Options -> USB Debugging.\r\n3. Tap 'Allow USB Debugging' on your phone screen.", "No Device", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return false;
+            }
+
+            // Build install flags
+            var flagSb = new StringBuilder();
+            if (chkUsbKeepData.Checked) flagSb.Append(" -r");
+            flagSb.Append(" -d"); // Allow version downgrade
+            if (chkUsbGrantPermissions.Checked) flagSb.Append(" -g"); // Auto-grant runtime permissions
+
+            string flags = flagSb.ToString().Trim();
+            bool overallSuccess = true;
+
+            foreach (var target in targetDevices)
+            {
+                Log($"[USB DEBUGGING] Installing {Path.GetFileName(apkToInstall)} on {target.Model} ({target.Serial})...", LogType.Build);
+
+                string installArgs = $"-s {target.Serial} install {flags} \"{apkToInstall}\"";
+                var installRes = await RunAdbCommandAsync(installArgs, line =>
+                {
+                    Invoke(new Action(() => Log($"[ADB] {line}", LogType.Build)));
+                });
+
+                if (installRes.Output.Contains("Success") || installRes.ExitCode == 0)
+                {
+                    Log($"[SUCCESS] APK successfully installed on {target.Model} ({target.Serial})!", LogType.Success);
+
+                    if (chkUsbLaunchAfterInstall.Checked)
+                    {
+                        string appId = string.IsNullOrWhiteSpace(txtAppId.Text) ? "com.example.rms" : txtAppId.Text.Trim();
+                        Log($"[ADB] Auto-launching application ({appId}) on {target.Serial}...", LogType.Info);
+                        string launchArgs = $"-s {target.Serial} shell monkey -p {appId} -c android.intent.category.LAUNCHER 1";
+                        await RunAdbCommandAsync(launchArgs);
+                    }
+                }
+                else
+                {
+                    overallSuccess = false;
+                    Log($"[ERROR] Installation failed on {target.Serial}: {installRes.Error} {installRes.Output}", LogType.Error);
+
+                    if (installRes.Output.Contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE"))
+                    {
+                        Log("[HINT] Existing installed APK has a different signing certificate. Click 'Clean Reinstall' to uninstall first.", LogType.Warn);
+                    }
+                    else if (installRes.Output.Contains("INSTALL_FAILED_USER_RESTRICTED"))
+                    {
+                        Log("[HINT] USB installation blocked by phone security policy. Enable 'Install via USB' in your phone's Developer Options.", LogType.Warn);
+                    }
+                }
+            }
+
+            return overallSuccess;
+        }
+
+        private async void btnRefreshUsb_Click(object sender, EventArgs e)
+        {
+            await RefreshUsbDevicesUiAsync(silent: false);
+        }
+
+        private void cmbUsbDevices_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            // Selected USB device changed
+        }
+
+        private async void btnUsbInstallNow_Click(object sender, EventArgs e)
+        {
+            SetUiBusy(true);
+            try
+            {
+                string chosenSerial = GetSelectedAdbSerial();
+                bool ok = await InstallApkToUsbDeviceAsync(chosenSerial);
+                if (ok)
+                {
+                    MessageBox.Show("APK installed successfully via USB Debugging!", "Direct Install Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            finally
+            {
+                SetUiBusy(false);
+            }
+        }
+
+        private async void btnLaunchApp_Click(object sender, EventArgs e)
+        {
+            string chosenSerial = GetSelectedAdbSerial();
+            string appId = string.IsNullOrWhiteSpace(txtAppId.Text) ? "com.example.rms" : txtAppId.Text.Trim();
+            string args = string.IsNullOrEmpty(chosenSerial)
+                ? $"shell monkey -p {appId} -c android.intent.category.LAUNCHER 1"
+                : $"-s {chosenSerial} shell monkey -p {appId} -c android.intent.category.LAUNCHER 1";
+
+            Log($"Launching {appId} via ADB...", LogType.Info);
+            var res = await RunAdbCommandAsync(args);
+            if (res.ExitCode == 0)
+            {
+                Log($"[SUCCESS] App {appId} launched.", LogType.Success);
+            }
+            else
+            {
+                Log($"Failed to launch app: {res.Error}", LogType.Warn);
+            }
+        }
+
+        private async void btnAdbRestart_Click(object sender, EventArgs e)
+        {
+            SetUiBusy(true);
+            Log("Restarting ADB server...", LogType.Info);
+            try
+            {
+                await RunAdbCommandAsync("kill-server");
+                await Task.Delay(500);
+                await RunAdbCommandAsync("start-server");
+                await RefreshUsbDevicesUiAsync(silent: false);
+                Log("[SUCCESS] ADB server restarted successfully.", LogType.Success);
+            }
+            finally
+            {
+                SetUiBusy(false);
+            }
+        }
+
+        private async void btnUsbUninstall_Click(object sender, EventArgs e)
+        {
+            string appId = string.IsNullOrWhiteSpace(txtAppId.Text) ? "com.example.rms" : txtAppId.Text.Trim();
+            string chosenSerial = GetSelectedAdbSerial();
+
+            var confirm = MessageBox.Show($"Uninstall '{appId}' from selected device and perform clean reinstall?", "Confirm Clean Reinstall", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes) return;
+
+            SetUiBusy(true);
+            try
+            {
+                Log($"[ADB] Uninstalling {appId}...", LogType.Info);
+                string uninstArgs = string.IsNullOrEmpty(chosenSerial) ? $"uninstall {appId}" : $"-s {chosenSerial} uninstall {appId}";
+                await RunAdbCommandAsync(uninstArgs);
+                Log("[ADB] Uninstall finished. Reinstalling fresh APK...", LogType.Info);
+
+                bool ok = await InstallApkToUsbDeviceAsync(chosenSerial);
+                if (ok)
+                {
+                    MessageBox.Show($"Clean reinstall of {appId} complete!", "Reinstall Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            finally
+            {
+                SetUiBusy(false);
+            }
+        }
+
+        #endregion
+    }
+
+    public class AdbDeviceInfo
+    {
+        public string Serial { get; set; } = "";
+        public string State { get; set; } = "unknown";
+        public string Model { get; set; } = "";
+        public string Product { get; set; } = "";
+        public string Device { get; set; } = "";
+
+        public bool IsReady => string.Equals(State, "device", StringComparison.OrdinalIgnoreCase);
+
+        public string DisplayText
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(Serial)) return "None";
+                string modelStr = !string.IsNullOrEmpty(Model) ? Model : (!string.IsNullOrEmpty(Device) ? Device : "Android Device");
+                string statusIcon = IsReady ? "🟢 Ready" : (State == "unauthorized" ? "🔑 Unauthorized" : $"⚠️ {State}");
+                return $"{modelStr} ({Serial}) [{statusIcon}]";
+            }
+        }
+
+        public override string ToString() => DisplayText;
     }
 }

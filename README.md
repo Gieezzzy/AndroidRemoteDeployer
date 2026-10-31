@@ -1,6 +1,6 @@
 # Android Remote Deployer
 
-A Windows Forms (.NET 8.0) automation utility for building Android Studio projects, generating production APKs, synchronizing OTA update metadata (`app-version.json`), and deploying builds directly to local or web-staged server directories (e.g., `D:\html\Android\<AppName>`).
+A Windows Forms (.NET 8.0) automation utility for building Android Studio projects, generating production APKs, synchronizing OTA update metadata (`app-version.json`), and deploying builds directly to local or web-staged server directories (e.g., `E:\html\Android\<AppName>`).
 
 ## Features
 - **Project Detection & Gradle Parsing**: Automatically scans Android Studio project directories for `app/build.gradle` or `app/build.gradle.kts`.

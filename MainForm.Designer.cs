@@ -70,6 +70,19 @@ namespace AndroidRemoteDeployer
             this.rbDebugBuild = new System.Windows.Forms.RadioButton();
             this.btnBuildAndDeploy = new System.Windows.Forms.Button();
             this.btnDeployExisting = new System.Windows.Forms.Button();
+            this.grpUsbDeploy = new System.Windows.Forms.GroupBox();
+            this.lblUsbDeviceTitle = new System.Windows.Forms.Label();
+            this.cmbUsbDevices = new System.Windows.Forms.ComboBox();
+            this.btnRefreshUsb = new System.Windows.Forms.Button();
+            this.lblUsbDeviceStatus = new System.Windows.Forms.Label();
+            this.btnUsbInstallNow = new System.Windows.Forms.Button();
+            this.btnLaunchApp = new System.Windows.Forms.Button();
+            this.btnAdbRestart = new System.Windows.Forms.Button();
+            this.btnUsbUninstall = new System.Windows.Forms.Button();
+            this.chkUsbAutoInstallOnDeploy = new System.Windows.Forms.CheckBox();
+            this.chkUsbGrantPermissions = new System.Windows.Forms.CheckBox();
+            this.chkUsbKeepData = new System.Windows.Forms.CheckBox();
+            this.chkUsbLaunchAfterInstall = new System.Windows.Forms.CheckBox();
             this.grpConsole = new System.Windows.Forms.GroupBox();
             this.btnCopyLog = new System.Windows.Forms.Button();
             this.btnClearLog = new System.Windows.Forms.Button();
@@ -81,6 +94,7 @@ namespace AndroidRemoteDeployer
             this.grpDestination.SuspendLayout();
             this.grpMetadata.SuspendLayout();
             this.grpActions.SuspendLayout();
+            this.grpUsbDeploy.SuspendLayout();
             this.grpConsole.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -385,7 +399,7 @@ namespace AndroidRemoteDeployer
             this.grpDestination.Size = new System.Drawing.Size(515, 288);
             this.grpDestination.TabIndex = 3;
             this.grpDestination.TabStop = false;
-            this.grpDestination.Text = "3. Deployment Destination (D:\\html\\Android)";
+            this.grpDestination.Text = "3. Deployment Destination (E:\\html\\Android)";
             // 
             // btnToggleHidden
             // 
@@ -502,7 +516,7 @@ namespace AndroidRemoteDeployer
             this.txtDestinationRoot.Name = "txtDestinationRoot";
             this.txtDestinationRoot.Size = new System.Drawing.Size(410, 23);
             this.txtDestinationRoot.TabIndex = 1;
-            this.txtDestinationRoot.Text = "D:\\html\\Android";
+            this.txtDestinationRoot.Text = "E:\\html\\Android";
             // 
             // lblDestinationRoot
             // 
@@ -545,7 +559,7 @@ namespace AndroidRemoteDeployer
             this.chkSyncRootLegacy.Name = "chkSyncRootLegacy";
             this.chkSyncRootLegacy.Size = new System.Drawing.Size(353, 19);
             this.chkSyncRootLegacy.TabIndex = 10;
-            this.chkSyncRootLegacy.Text = "Also sync legacy root (D:\\html\\app-version.json && rms.apk)";
+            this.chkSyncRootLegacy.Text = "Also sync legacy root (E:\\html\\app-version.json && rms.apk)";
             this.chkSyncRootLegacy.UseVisualStyleBackColor = true;
             // 
             // btnCheckLiveServer
@@ -733,6 +747,188 @@ namespace AndroidRemoteDeployer
             this.btnDeployExisting.UseVisualStyleBackColor = false;
             this.btnDeployExisting.Click += new System.EventHandler(this.btnDeployExisting_Click);
             // 
+            // grpUsbDeploy
+            // 
+            this.grpUsbDeploy.Controls.Add(this.lblUsbDeviceTitle);
+            this.grpUsbDeploy.Controls.Add(this.cmbUsbDevices);
+            this.grpUsbDeploy.Controls.Add(this.btnRefreshUsb);
+            this.grpUsbDeploy.Controls.Add(this.lblUsbDeviceStatus);
+            this.grpUsbDeploy.Controls.Add(this.btnUsbInstallNow);
+            this.grpUsbDeploy.Controls.Add(this.btnLaunchApp);
+            this.grpUsbDeploy.Controls.Add(this.btnAdbRestart);
+            this.grpUsbDeploy.Controls.Add(this.btnUsbUninstall);
+            this.grpUsbDeploy.Controls.Add(this.chkUsbAutoInstallOnDeploy);
+            this.grpUsbDeploy.Controls.Add(this.chkUsbGrantPermissions);
+            this.grpUsbDeploy.Controls.Add(this.chkUsbKeepData);
+            this.grpUsbDeploy.Controls.Add(this.chkUsbLaunchAfterInstall);
+            this.grpUsbDeploy.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.grpUsbDeploy.Location = new System.Drawing.Point(20, 572);
+            this.grpUsbDeploy.Name = "grpUsbDeploy";
+            this.grpUsbDeploy.Size = new System.Drawing.Size(1044, 138);
+            this.grpUsbDeploy.TabIndex = 6;
+            this.grpUsbDeploy.TabStop = false;
+            this.grpUsbDeploy.Text = "6. USB Debugging & Direct Device Sideload (ADB)";
+            // 
+            // lblUsbDeviceTitle
+            // 
+            this.lblUsbDeviceTitle.AutoSize = true;
+            this.lblUsbDeviceTitle.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.lblUsbDeviceTitle.Location = new System.Drawing.Point(18, 26);
+            this.lblUsbDeviceTitle.Name = "lblUsbDeviceTitle";
+            this.lblUsbDeviceTitle.Size = new System.Drawing.Size(117, 15);
+            this.lblUsbDeviceTitle.TabIndex = 0;
+            this.lblUsbDeviceTitle.Text = "Target USB Device:";
+            // 
+            // cmbUsbDevices
+            // 
+            this.cmbUsbDevices.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbUsbDevices.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.cmbUsbDevices.FormattingEnabled = true;
+            this.cmbUsbDevices.Location = new System.Drawing.Point(145, 22);
+            this.cmbUsbDevices.Name = "cmbUsbDevices";
+            this.cmbUsbDevices.Size = new System.Drawing.Size(430, 23);
+            this.cmbUsbDevices.TabIndex = 1;
+            this.cmbUsbDevices.SelectedIndexChanged += new System.EventHandler(this.cmbUsbDevices_SelectedIndexChanged);
+            // 
+            // btnRefreshUsb
+            // 
+            this.btnRefreshUsb.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
+            this.btnRefreshUsb.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.btnRefreshUsb.Location = new System.Drawing.Point(585, 20);
+            this.btnRefreshUsb.Name = "btnRefreshUsb";
+            this.btnRefreshUsb.Size = new System.Drawing.Size(100, 26);
+            this.btnRefreshUsb.TabIndex = 2;
+            this.btnRefreshUsb.Text = "🔄 Scan USB";
+            this.btnRefreshUsb.UseVisualStyleBackColor = false;
+            this.btnRefreshUsb.Click += new System.EventHandler(this.btnRefreshUsb_Click);
+            // 
+            // lblUsbDeviceStatus
+            // 
+            this.lblUsbDeviceStatus.AutoSize = true;
+            this.lblUsbDeviceStatus.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.lblUsbDeviceStatus.ForeColor = System.Drawing.Color.DarkSlateGray;
+            this.lblUsbDeviceStatus.Location = new System.Drawing.Point(698, 25);
+            this.lblUsbDeviceStatus.Name = "lblUsbDeviceStatus";
+            this.lblUsbDeviceStatus.Size = new System.Drawing.Size(118, 15);
+            this.lblUsbDeviceStatus.TabIndex = 3;
+            this.lblUsbDeviceStatus.Text = "Status: Scanning...";
+            // 
+            // btnUsbInstallNow
+            // 
+            this.btnUsbInstallNow.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
+            this.btnUsbInstallNow.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnUsbInstallNow.FlatAppearance.BorderSize = 0;
+            this.btnUsbInstallNow.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnUsbInstallNow.Font = new System.Drawing.Font("Segoe UI", 10.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.btnUsbInstallNow.ForeColor = System.Drawing.Color.White;
+            this.btnUsbInstallNow.Location = new System.Drawing.Point(18, 54);
+            this.btnUsbInstallNow.Name = "btnUsbInstallNow";
+            this.btnUsbInstallNow.Size = new System.Drawing.Size(320, 42);
+            this.btnUsbInstallNow.TabIndex = 4;
+            this.btnUsbInstallNow.Text = "📲 Install APK via USB Now";
+            this.btnUsbInstallNow.UseVisualStyleBackColor = false;
+            this.btnUsbInstallNow.Click += new System.EventHandler(this.btnUsbInstallNow_Click);
+            // 
+            // btnLaunchApp
+            // 
+            this.btnLaunchApp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.btnLaunchApp.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnLaunchApp.FlatAppearance.BorderSize = 0;
+            this.btnLaunchApp.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLaunchApp.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.btnLaunchApp.ForeColor = System.Drawing.Color.White;
+            this.btnLaunchApp.Location = new System.Drawing.Point(348, 54);
+            this.btnLaunchApp.Name = "btnLaunchApp";
+            this.btnLaunchApp.Size = new System.Drawing.Size(180, 42);
+            this.btnLaunchApp.TabIndex = 5;
+            this.btnLaunchApp.Text = "▶️ Launch Installed App";
+            this.btnLaunchApp.UseVisualStyleBackColor = false;
+            this.btnLaunchApp.Click += new System.EventHandler(this.btnLaunchApp_Click);
+            // 
+            // btnAdbRestart
+            // 
+            this.btnAdbRestart.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+            this.btnAdbRestart.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAdbRestart.FlatAppearance.BorderSize = 0;
+            this.btnAdbRestart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAdbRestart.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.btnAdbRestart.ForeColor = System.Drawing.Color.White;
+            this.btnAdbRestart.Location = new System.Drawing.Point(538, 54);
+            this.btnAdbRestart.Name = "btnAdbRestart";
+            this.btnAdbRestart.Size = new System.Drawing.Size(150, 42);
+            this.btnAdbRestart.TabIndex = 6;
+            this.btnAdbRestart.Text = "🔌 Restart ADB";
+            this.btnAdbRestart.UseVisualStyleBackColor = false;
+            this.btnAdbRestart.Click += new System.EventHandler(this.btnAdbRestart_Click);
+            // 
+            // btnUsbUninstall
+            // 
+            this.btnUsbUninstall.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(225)))), ((int)(((byte)(29)))), ((int)(((byte)(72)))));
+            this.btnUsbUninstall.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnUsbUninstall.FlatAppearance.BorderSize = 0;
+            this.btnUsbUninstall.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnUsbUninstall.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.btnUsbUninstall.ForeColor = System.Drawing.Color.White;
+            this.btnUsbUninstall.Location = new System.Drawing.Point(698, 54);
+            this.btnUsbUninstall.Name = "btnUsbUninstall";
+            this.btnUsbUninstall.Size = new System.Drawing.Size(160, 42);
+            this.btnUsbUninstall.TabIndex = 7;
+            this.btnUsbUninstall.Text = "🗑️ Clean Reinstall";
+            this.btnUsbUninstall.UseVisualStyleBackColor = false;
+            this.btnUsbUninstall.Click += new System.EventHandler(this.btnUsbUninstall_Click);
+            // 
+            // chkUsbAutoInstallOnDeploy
+            // 
+            this.chkUsbAutoInstallOnDeploy.AutoSize = true;
+            this.chkUsbAutoInstallOnDeploy.Checked = true;
+            this.chkUsbAutoInstallOnDeploy.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkUsbAutoInstallOnDeploy.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.chkUsbAutoInstallOnDeploy.Location = new System.Drawing.Point(18, 106);
+            this.chkUsbAutoInstallOnDeploy.Name = "chkUsbAutoInstallOnDeploy";
+            this.chkUsbAutoInstallOnDeploy.Size = new System.Drawing.Size(325, 19);
+            this.chkUsbAutoInstallOnDeploy.TabIndex = 8;
+            this.chkUsbAutoInstallOnDeploy.Text = "Auto-install to USB device(s) on 1-Click Build & Deploy";
+            this.chkUsbAutoInstallOnDeploy.UseVisualStyleBackColor = true;
+            // 
+            // chkUsbGrantPermissions
+            // 
+            this.chkUsbGrantPermissions.AutoSize = true;
+            this.chkUsbGrantPermissions.Checked = true;
+            this.chkUsbGrantPermissions.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkUsbGrantPermissions.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.chkUsbGrantPermissions.Location = new System.Drawing.Point(365, 106);
+            this.chkUsbGrantPermissions.Name = "chkUsbGrantPermissions";
+            this.chkUsbGrantPermissions.Size = new System.Drawing.Size(190, 19);
+            this.chkUsbGrantPermissions.TabIndex = 9;
+            this.chkUsbGrantPermissions.Text = "Grant runtime permissions (-g)";
+            this.chkUsbGrantPermissions.UseVisualStyleBackColor = true;
+            // 
+            // chkUsbKeepData
+            // 
+            this.chkUsbKeepData.AutoSize = true;
+            this.chkUsbKeepData.Checked = true;
+            this.chkUsbKeepData.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkUsbKeepData.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.chkUsbKeepData.Location = new System.Drawing.Point(575, 106);
+            this.chkUsbKeepData.Name = "chkUsbKeepData";
+            this.chkUsbKeepData.Size = new System.Drawing.Size(160, 19);
+            this.chkUsbKeepData.TabIndex = 10;
+            this.chkUsbKeepData.Text = "Keep app data (-r)";
+            this.chkUsbKeepData.UseVisualStyleBackColor = true;
+            // 
+            // chkUsbLaunchAfterInstall
+            // 
+            this.chkUsbLaunchAfterInstall.AutoSize = true;
+            this.chkUsbLaunchAfterInstall.Checked = true;
+            this.chkUsbLaunchAfterInstall.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkUsbLaunchAfterInstall.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.chkUsbLaunchAfterInstall.Location = new System.Drawing.Point(755, 106);
+            this.chkUsbLaunchAfterInstall.Name = "chkUsbLaunchAfterInstall";
+            this.chkUsbLaunchAfterInstall.Size = new System.Drawing.Size(175, 19);
+            this.chkUsbLaunchAfterInstall.TabIndex = 11;
+            this.chkUsbLaunchAfterInstall.Text = "Auto-launch app after install";
+            this.chkUsbLaunchAfterInstall.UseVisualStyleBackColor = true;
+            // 
             // grpConsole
             // 
             this.grpConsole.Controls.Add(this.btnCopyLog);
@@ -740,12 +936,12 @@ namespace AndroidRemoteDeployer
             this.grpConsole.Controls.Add(this.progressBar);
             this.grpConsole.Controls.Add(this.rtbLog);
             this.grpConsole.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.grpConsole.Location = new System.Drawing.Point(20, 572);
+            this.grpConsole.Location = new System.Drawing.Point(20, 718);
             this.grpConsole.Name = "grpConsole";
-            this.grpConsole.Size = new System.Drawing.Size(1044, 185);
-            this.grpConsole.TabIndex = 6;
+            this.grpConsole.Size = new System.Drawing.Size(1044, 190);
+            this.grpConsole.TabIndex = 7;
             this.grpConsole.TabStop = false;
-            this.grpConsole.Text = "6. Live Automation & Deployment Console";
+            this.grpConsole.Text = "7. Live Automation & Deployment Console";
             // 
             // btnCopyLog
             // 
@@ -797,8 +993,9 @@ namespace AndroidRemoteDeployer
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
-            this.ClientSize = new System.Drawing.Size(1084, 765);
+            this.ClientSize = new System.Drawing.Size(1084, 920);
             this.Controls.Add(this.grpConsole);
+            this.Controls.Add(this.grpUsbDeploy);
             this.Controls.Add(this.grpActions);
             this.Controls.Add(this.grpMetadata);
             this.Controls.Add(this.grpDestination);
@@ -823,6 +1020,8 @@ namespace AndroidRemoteDeployer
             this.grpMetadata.PerformLayout();
             this.grpActions.ResumeLayout(false);
             this.grpActions.PerformLayout();
+            this.grpUsbDeploy.ResumeLayout(false);
+            this.grpUsbDeploy.PerformLayout();
             this.grpConsole.ResumeLayout(false);
             this.ResumeLayout(false);
 
@@ -883,6 +1082,19 @@ namespace AndroidRemoteDeployer
         private System.Windows.Forms.RadioButton rbDebugBuild;
         private System.Windows.Forms.RadioButton rbReleaseBuild;
         private System.Windows.Forms.Button btnCancelBuild;
+        private System.Windows.Forms.GroupBox grpUsbDeploy;
+        private System.Windows.Forms.Label lblUsbDeviceTitle;
+        private System.Windows.Forms.ComboBox cmbUsbDevices;
+        private System.Windows.Forms.Button btnRefreshUsb;
+        private System.Windows.Forms.Label lblUsbDeviceStatus;
+        private System.Windows.Forms.Button btnUsbInstallNow;
+        private System.Windows.Forms.Button btnLaunchApp;
+        private System.Windows.Forms.Button btnAdbRestart;
+        private System.Windows.Forms.Button btnUsbUninstall;
+        private System.Windows.Forms.CheckBox chkUsbAutoInstallOnDeploy;
+        private System.Windows.Forms.CheckBox chkUsbGrantPermissions;
+        private System.Windows.Forms.CheckBox chkUsbKeepData;
+        private System.Windows.Forms.CheckBox chkUsbLaunchAfterInstall;
         private System.Windows.Forms.GroupBox grpConsole;
         private System.Windows.Forms.RichTextBox rtbLog;
         private System.Windows.Forms.ProgressBar progressBar;
